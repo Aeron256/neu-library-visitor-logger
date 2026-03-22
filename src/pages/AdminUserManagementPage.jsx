@@ -12,7 +12,7 @@ import {
   doc,
   serverTimestamp
 } from 'firebase/firestore';
-import { LogOut, Shield, User, Plus, X } from 'lucide-react';
+import { LogOut, Shield, User, Plus, X, Loader, UserMinus, UserCheck } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 
 export default function AdminUserManagementPage() {
@@ -31,7 +31,7 @@ export default function AdminUserManagementPage() {
       return;
     }
     fetchUsers();
-  }, [userRole]);
+  }, [userRole, navigate]);
 
   const fetchUsers = async () => {
     try {
@@ -113,15 +113,22 @@ export default function AdminUserManagementPage() {
   };
 
   return (
-    <div className="flex h-screen bg-dark-950">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar userRole={userRole} />
-      <div className="flex-1 flex flex-col">
-        <div className="bg-dark-900 border-b border-dark-800 p-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-white">User Management (Admin)</h1>
+      
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Bar */}
+        <div className="bg-white border-b border-slate-200 p-4 shadow-sm z-10">
+          <div className="flex justify-between items-center px-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-lg">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">User Management</h1>
+            </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 bg-dark-800 hover:bg-dark-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition-all font-semibold text-sm"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -129,108 +136,145 @@ export default function AdminUserManagementPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-8">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-neu-blue hover:bg-neu-blue hover:opacity-90 text-white px-6 py-2 rounded-lg mb-8 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add User</span>
-          </button>
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-900 bg-opacity-30 border border-red-500 rounded-lg">
-              <p className="text-red-200">{error}</p>
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto p-4 md:p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-1">Access Control</h2>
+                <p className="text-slate-400 text-sm font-medium">Manage student accounts and permissions</p>
+              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/20 font-bold"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Student</span>
+              </button>
             </div>
-          )}
 
-          <div className="bg-dark-900 rounded-lg border border-dark-800 overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center text-dark-400">Loading users...</div>
-            ) : users.length === 0 ? (
-              <div className="p-8 text-center text-dark-400">No users found</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-dark-800 border-b border-dark-700">
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Email</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Name</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Status</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => (
-                      <tr
-                        key={user.uid}
-                        className="border-b border-dark-800 hover:bg-dark-800 hover:bg-opacity-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 text-sm text-white">{user.email}</td>
-                        <td className="px-6 py-4 text-sm text-dark-300">{user.displayName || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className={`inline-flex px-3 py-1 rounded text-xs font-medium ${
-                            user.isBlocked
-                              ? 'bg-red-900 bg-opacity-30 text-red-200'
-                              : 'bg-green-900 bg-opacity-30 text-green-200'
-                          }`}>
-                            {user.isBlocked ? 'Blocked' : 'Active'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <button
-                            onClick={() => handleBlockUser(user.uid, user.isBlocked)}
-                            className={`inline-flex items-center gap-1 transition-colors ${
-                              user.isBlocked
-                                ? 'text-green-400 hover:text-green-300'
-                                : 'text-yellow-400 hover:text-yellow-300'
-                            }`}
-                            title={user.isBlocked ? 'Unblock user' : 'Block user'}
-                          >
-                            <User className="w-4 h-4" />
-                            {user.isBlocked ? 'Unblock' : 'Block'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {error && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600">
+                <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                <p className="text-sm font-bold">{error}</p>
               </div>
             )}
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {loading ? (
+                <div className="p-24 text-center flex flex-col items-center gap-4">
+                  <Loader className="w-10 h-10 text-blue-500 animate-spin" />
+                  <span className="text-slate-400 font-bold uppercase tracking-tighter text-xs">Retrieving User Directory...</span>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="p-24 text-center">
+                  <User className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-500 font-bold">No students registered yet</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <th className="px-8 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Account Details</th>
+                        <th className="px-8 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Administrative Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {users.map((user) => (
+                        <tr key={user.uid} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                              <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase">
+                                {user.displayName?.charAt(0) || <User className="w-5 h-5" />}
+                              </div>
+                              <div>
+                                <div className="text-sm font-bold text-slate-900">{user.displayName}</div>
+                                <div className="text-xs text-slate-400 font-medium">{user.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              user.isBlocked
+                                ? 'bg-rose-100 text-rose-600'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${user.isBlocked ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                              {user.isBlocked ? 'Restricted' : 'Authorized'}
+                            </span>
+                          </td>
+                          <td className="px-8 py-5 text-right">
+                            <button
+                              onClick={() => handleBlockUser(user.uid, user.isBlocked)}
+                              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                user.isBlocked
+                                  ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                  : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                              }`}
+                            >
+                              {user.isBlocked ? (
+                                <><UserCheck className="w-4 h-4" /> Restore Access</>
+                              ) : (
+                                <><UserMinus className="w-4 h-4" /> Revoke Access</>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Add User Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-dark-900 rounded-lg border border-dark-800 p-8 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 max-w-md w-full animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">Add User</h2>
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <User className="w-5 h-5 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">Add New User</h2>
+              </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-dark-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <form onSubmit={handleAddUser}>
-              <div className="mb-4">
-                <label className="block text-dark-300 text-sm font-medium mb-2">Email Address</label>
+            
+            <form onSubmit={handleAddUser} className="space-y-6">
+              <div>
+                <label className="block text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">School Email Address</label>
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="user@neu.edu.ph"
-                  className="w-full px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
+                  placeholder="student@neu.edu.ph"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-900 font-medium"
                   required
                 />
+                <p className="mt-2 text-[10px] text-slate-400 font-medium">User must have a verified institutional domain.</p>
               </div>
+              
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-neu-blue hover:opacity-90 text-white font-semibold py-2 rounded-lg transition-all disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isSubmitting ? 'Adding...' : 'Add User'}
+                {isSubmitting ? (
+                  <><Loader className="w-4 h-4 animate-spin" /> Provisioning...</>
+                ) : (
+                  'Create Account'
+                )}
               </button>
             </form>
           </div>

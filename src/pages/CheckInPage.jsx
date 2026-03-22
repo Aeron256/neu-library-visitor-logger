@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc, query, where, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
+import QRCode from 'react-qr-code';
 import { 
   Book, 
   Lightbulb, 
@@ -11,11 +12,12 @@ import {
   FileText,
   Loader,
   LogOut,
-  Clock,
   CheckCircle,
-  LogIn
+  QrCode,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
-
+import logo from "../../assets/images/New_Era_University.png";
 const purposes = [
   { id: 'reading', label: 'Reading', icon: Book },
   { id: 'studying', label: 'Studying', icon: Lightbulb },
@@ -33,62 +35,55 @@ export default function CheckInPage() {
   const [error, setError] = useState(null);
   const [activeLog, setActiveLog] = useState(null);
 
+  useEffect(() => {
+    loadActiveLog();
+  }, [user]);
+
+  const loadActiveLog = async () => {
+    if (!user?.uid) return;
+    try {
+      const logsQuery = query(
+        collection(db, 'visitorLogs'),
+        where('uid', '==', user.uid),
+        where('status', '==', 'checked-in')
+      );
+      const snapshot = await getDocs(logsQuery);
+      if (!snapshot.empty) {
+        const docSnapshot = snapshot.docs
+          .sort((a, b) => b.data().timeIn?.toDate?.() - a.data().timeIn?.toDate?.())[0];
+        setActiveLog({ id: docSnapshot.id, ...docSnapshot.data() });
+      } else {
+        setActiveLog(null);
+      }
+    } catch (err) {
+      console.error('Error loading active log:', err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedPurpose) {
-      setError('Please select a purpose');
-      return;
-    }
-
-    if (activeLog) {
-      setError('You are already checked in. Please check out first.');
+      setError('Please select your purpose of visit.');
       return;
     }
 
     if (userData?.isBlocked) {
-      setError('Your account is blocked. Please contact admin.');
+      setError('Account Restricted: Please proceed to the Librarian desk.');
       return;
     }
 
     try {
       setIsSubmitting(true);
       setError(null);
-      // Ensure we have the latest college and userType values
-      let currentCollege = userData?.college;
-      let currentUserType = userData?.userType;
-      let currentIsBlocked = userData?.isBlocked;
-
-      if (!currentCollege || !currentUserType) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userSnapshot = await getDoc(userDocRef);
-        if (userSnapshot.exists()) {
-          const userDocData = userSnapshot.data();
-          currentCollege = currentCollege || userDocData.college || '';
-          currentUserType = currentUserType || userDocData.userType || '';
-          currentIsBlocked = currentIsBlocked ?? userDocData.isBlocked;
-        }
-      }
-
-      if (currentIsBlocked) {
-        setError('Your account is blocked. Please contact admin.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (!currentCollege || !currentUserType) {
-        setError('College and user type must be set before checking in. Please complete registration.');
-        setIsSubmitting(false);
-        return;
-      }
 
       const logsRef = collection(db, 'visitorLogs');
       const docRef = await addDoc(logsRef, {
         uid: user.uid,
         name: user.displayName || user.email.split('@')[0],
         email: user.email,
-        college: currentCollege,
+        college: userData?.college || 'N/A',
         purpose: selectedPurpose,
-        userType: currentUserType,
+        userType: userData?.userType || 'Student',
         timeIn: serverTimestamp(),
         timeOut: null,
         duration: null,
@@ -96,24 +91,10 @@ export default function CheckInPage() {
         createdAt: serverTimestamp(),
       });
 
-      // Reset form and show success
+      await loadActiveLog();
       setSelectedPurpose(null);
-      setActiveLog({
-        id: docRef.id,
-        uid: user.uid,
-        name: user.displayName || user.email.split('@')[0],
-        email: user.email,
-        college: currentCollege,
-        purpose: selectedPurpose,
-        userType: currentUserType,
-        timeIn: new Date(),
-        isBlocked: false,
-        status: 'checked-in',
-      });
-      setError(null);
     } catch (err) {
-      console.error('Check-in error:', err);
-      setError('Failed to check in. Please try again.');
+      setError('Connection error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -121,14 +102,14 @@ export default function CheckInPage() {
 
   const performCheckout = async () => {
     if (!activeLog) return;
-
     try {
       setIsProcessing(true);
       const logRef = doc(db, 'visitorLogs', activeLog.id);
       const timeIn = activeLog.timeIn?.toDate?.() || new Date(activeLog.timeIn);
       const timeOut = new Date();
-      const durationMinutes = Math.round((timeOut - timeIn) / 60000);
-      const duration = `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`;
+      const diffMs = timeOut - timeIn;
+      const diffMins = Math.round(diffMs / 60000);
+      const duration = `${Math.floor(diffMins / 60)}h ${diffMins % 60}m`;
 
       await updateDoc(logRef, {
         timeOut: serverTimestamp(),
@@ -138,172 +119,157 @@ export default function CheckInPage() {
       });
 
       setActiveLog(null);
-      setError(null);
     } catch (err) {
-      console.error('Checkout error:', err);
-      setError('Failed to check out. Please try again.');
+      setError('Checkout failed. Please notify the librarian.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      if (activeLog) {
-        await performCheckout();
-      }
-      await logout();
-      navigate('/');
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-  };
-
-  useEffect(() => {
-    const loadActiveLog = async () => {
-      if (!user?.uid) return;
-      try {
-        const logsQuery = query(
-          collection(db, 'visitorLogs'),
-          where('uid', '==', user.uid),
-          where('status', '==', 'checked-in')
-        );
-        const snapshot = await getDocs(logsQuery);
-        if (!snapshot.empty) {
-          const docSnapshot = snapshot.docs
-            .sort((a, b) => b.data().timeIn?.toDate?.() - a.data().timeIn?.toDate?.())[0];
-          setActiveLog({ id: docSnapshot.id, ...docSnapshot.data() });
-        } else {
-          setActiveLog(null);
-        }
-      } catch (err) {
-        console.error('Error loading active log:', err);
-      }
-    };
-    loadActiveLog();
-  }, [user]);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark-950 to-dark-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
-      <div className="bg-dark-900 border-b border-dark-800 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-white">NEU Library</h1>
-            <p className="text-dark-400 text-sm">Welcome, {user?.displayName}</p>
+      <header className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="NEU Logo" className="w-8 h-8 object-contain" />
+            <span className="font-black text-xl tracking-tight text-slate-900">NEU <span className="text-blue-600">LIBRARY</span></span>
           </div>
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-dark-800 hover:bg-dark-700 text-white px-4 py-2 rounded-lg transition-colors"
+            onClick={logout}
+            className="flex items-center gap-2 text-slate-500 hover:text-rose-600 font-bold text-sm transition-colors"
           >
             <LogOut className="w-4 h-4" />
-            <span>Logout</span>
+            <span>Sign Out</span>
           </button>
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h2 className="text-5xl font-bold text-white mb-4">Welcome to NEU Library!</h2>
-          <p className="text-xl text-dark-400">
-            {activeLog
-              ? `Hello ${activeLog.name}, you are currently checked in (Purpose: ${activeLog.purpose}).`
-              : 'Please select your visit purpose to check in'}
-          </p>
+      </header> <main className="flex-1 max-w-5xl mx-auto w-full p-6 md:p-12">
+        <div className="mb-12">
+          <h1 className="text-4xl font-black text-slate-900 mb-2">Welcome back!</h1>
+          <p className="text-slate-500 font-medium">Manage your library session below.</p>
         </div>
 
-        <div className="bg-dark-900 rounded-2xl border border-dark-800 p-8">
-          {activeLog ? (
-            <div className="text-center space-y-6">
-              <div className="px-6 py-8 bg-green-900 bg-opacity-20 rounded-xl">
-                <CheckCircle className="mx-auto w-14 h-14 text-green-400" />
-                <h3 className="text-2xl font-semibold text-white mt-4">Checked in</h3>
-                <p className="text-dark-300">Purpose: {activeLog.purpose}</p>
-                <p className="text-dark-300">College: {activeLog.college}</p>
-                <p className="text-dark-300">User Type: {activeLog.userType}</p>
-              </div>
-
-              {error && (
-                <div className="p-4 bg-red-900 bg-opacity-30 border border-red-500 rounded-lg">
-                  <p className="text-red-200">{error}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          {/* Left Column: QR ID */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-xl shadow-blue-500/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+              
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-8">
+                  <QrCode className="text-blue-600 w-6 h-6" />
+                  <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Library Digital Pass</h3>
                 </div>
-              )}
 
-              <button
-                onClick={performCheckout}
-                disabled={isProcessing}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProcessing ? 'Checking Out...' : 'Check Out'}
-              </button>
+                <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 flex justify-center mb-6">
+                  {userData?.schoolId ? (
+                    <QRCode value={userData.schoolId} size={180} />
+                  ) : (
+                    <div className="w-[180px] h-[180px] bg-slate-50 rounded flex items-center justify-center text-slate-400">
+                      ID Not Set
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-center">
+                  <p className="text-xs font-bold text-slate-400 uppercase mb-1">Student ID</p>
+                  <p className="text-lg font-black text-slate-900 tracking-widest">{userData?.schoolId || '--- ---'}</p>
+                </div>
+              </div>
             </div>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit}>
-                {error && (
-                  <div className="mb-6 p-4 bg-red-900 bg-opacity-30 border border-red-500 rounded-lg">
-                    <p className="text-red-200">{error}</p>
-                  </div>
-                )}
+          </div>
 
-                {/* Purpose of Visit */}
-                <div className="mb-8">
-                  <label className="block text-white font-semibold mb-4 text-lg">
-                    Purpose of Visit
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {purposes.map((purpose) => {
-                      const Icon = purpose.icon;
+          {/* Right Column: Interaction Area */}
+          <div className="lg:col-span-3">
+            {activeLog ? (
+              <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                    <CheckCircle className="text-emerald-600 w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Current Session</h3>
+                    <p className="text-emerald-600 font-bold text-xs uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                      Active Now
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex justify-between py-3 border-b border-slate-50">
+                    <span className="text-slate-400 font-bold text-sm">Purpose</span>
+                    <span className="text-slate-900 font-bold capitalize">{activeLog.purpose}</span>
+                  </div>
+                  <div className="flex justify-between py-3 border-b border-slate-50">
+                    <span className="text-slate-400 font-bold text-sm">Checked In</span>
+                    <span className="text-slate-900 font-bold">
+                      {activeLog.timeIn?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={performCheckout}
+                  disabled={isProcessing}
+                  className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-2 group"
+                >
+                  {isProcessing ? <Loader className="w-5 h-5 animate-spin" /> : 'Finish Session'}
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                <h3 className="text-xl font-black text-slate-900 mb-6">Start Visit</h3>
+                
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {error && (
+                    <div className="p-4 bg-rose-50 text-rose-600 text-sm font-bold rounded-xl border border-rose-100">
+                      {error}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {purposes.map((p) => {
+                      const Icon = p.icon;
+                      const isSelected = selectedPurpose === p.id;
                       return (
                         <button
-                          key={purpose.id}
+                          key={p.id}
                           type="button"
-                          onClick={() => setSelectedPurpose(purpose.id)}
-                          className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-2 ${
-                            selectedPurpose === purpose.id
-                              ? 'border-neu-blue bg-neu-blue bg-opacity-10'
-                              : 'border-dark-700 hover:border-dark-600'
+                          onClick={() => setSelectedPurpose(p.id)}
+                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                            isSelected 
+                            ? 'border-blue-600 bg-blue-50/50' 
+                            : 'border-slate-100 hover:border-slate-200 text-slate-400'
                           }`}
                         >
-                          <Icon className="w-6 h-6 text-neu-blue" />
-                          <span className="text-sm text-white font-medium text-center">
-                            {purpose.label}
+                          <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : ''}`} />
+                          <span className={`text-[11px] font-black uppercase tracking-tight text-center ${isSelected ? 'text-blue-700' : ''}`}>
+                            {p.label}
                           </span>
                         </button>
                       );
                     })}
                   </div>
-                </div>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-neu-blue to-neu-cyan text-white font-bold py-4 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader className="w-5 h-5 animate-spin" />
-                      <span>Checking In...</span>
-                    </>
-                  ) : (
-                    <span>Check In Now</span>
-                  )}
-                </button>
-              </form>
-
-              {/* Additional Info */}
-              <div className="mt-8 pt-8 border-t border-dark-700">
-                <p className="text-dark-400 text-center text-sm">
-                  Your check-in information will be securely stored for library records.
-                </p>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 flex items-center justify-center gap-3"
+                  >
+                    {isSubmitting ? <Loader className="w-5 h-5 animate-spin" /> : 'Enter Library'}
+                  </button>
+                </form>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="p-8 text-center text-slate-300 text-xs font-bold uppercase tracking-[0.2em]">
+        New Era University Library • {new Date().getFullYear()}
+      </footer>
     </div>
   );
 }

@@ -135,12 +135,16 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateAuthUserData = (newData) => {
+    setUserData((prevData) => ({ ...prevData, ...newData }));
+  };
+
   const logout = () => {
     return signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, userRole, userData, loading, error, login, logout }}>
+    <AuthContext.Provider value={{ user, userRole, userData, loading, error, login, logout, updateAuthUserData }}>
       {children}
     </AuthContext.Provider>
   );

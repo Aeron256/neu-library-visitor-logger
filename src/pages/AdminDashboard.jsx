@@ -13,7 +13,8 @@ import {
   LogOut, 
   Settings,
   TrendingUp,
-  Calendar
+  Calendar,
+  Loader
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -28,6 +29,7 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
+import { seedRealisticDatabase } from '../lib/seedData';
 
 // Register Chart.js components
 ChartJS.register(
@@ -70,12 +72,10 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
 
-      // Fetch all logs
-      const logsQuery = query(collection(db, 'logs'));
+      const logsQuery = query(collection(db, 'visitorLogs'));
       const logsSnapshot = await getDocs(logsQuery);
       let logs = logsSnapshot.docs.map(doc => doc.data());
 
-      // Apply date filter client-side
       const now = new Date();
       let startDate = new Date();
 
@@ -98,24 +98,20 @@ export default function AdminDashboard() {
         return logDate >= startDate && logDate <= now;
       });
 
-      // Apply college filter
       if (collegeFilter) {
         logs = logs.filter(log => log.college === collegeFilter);
       }
 
-      // Apply purpose filter
       if (purposeFilter) {
         logs = logs.filter(log => log.purpose === purposeFilter);
       }
 
-      // Calculate stats
       const totalVisitors = logs.length;
       const studentCount = logs.filter(log => log.userType === 'Student').length;
       const employeeCount = logs.filter(log => 
         ['Faculty', 'Staff'].includes(log.userType)
       ).length;
 
-      // Get top purpose
       const purposeCounts = {};
       logs.forEach(log => {
         purposeCounts[log.purpose] = (purposeCounts[log.purpose] || 0) + 1;
@@ -131,19 +127,14 @@ export default function AdminDashboard() {
         topPurpose,
       });
 
-      // Calculate chart data
       const collegeCounts = {};
       const purposeCountsForChart = {};
 
       logs.forEach(log => {
-        // College data
         collegeCounts[log.college] = (collegeCounts[log.college] || 0) + 1;
-        
-        // Purpose data
         purposeCountsForChart[log.purpose] = (purposeCountsForChart[log.purpose] || 0) + 1;
       });
 
-      // Prepare college chart data
       const collegeLabels = Object.keys(collegeCounts);
       const collegeValues = Object.values(collegeCounts);
 
@@ -154,31 +145,21 @@ export default function AdminDashboard() {
             label: 'Visitors',
             data: collegeValues,
             backgroundColor: [
-              'rgba(59, 130, 246, 0.8)', // blue
-              'rgba(16, 185, 129, 0.8)', // emerald
-              'rgba(245, 158, 11, 0.8)', // amber
-              'rgba(239, 68, 68, 0.8)',  // red
-              'rgba(139, 92, 246, 0.8)', // violet
-              'rgba(236, 72, 153, 0.8)', // pink
-              'rgba(6, 182, 212, 0.8)',  // cyan
-              'rgba(34, 197, 94, 0.8)',  // green
+              '#3b82f6', // blue
+              '#10b981', // emerald
+              '#f59e0b', // amber
+              '#ef4444', // red
+              '#8b5cf6', // violet
+              '#ec4899', // pink
+              '#06b6d4', // cyan
+              '#22c55e', // green
             ],
-            borderColor: [
-              'rgba(59, 130, 246, 1)',
-              'rgba(16, 185, 129, 1)',
-              'rgba(245, 158, 11, 1)',
-              'rgba(239, 68, 68, 1)',
-              'rgba(139, 92, 246, 1)',
-              'rgba(236, 72, 153, 1)',
-              'rgba(6, 182, 212, 1)',
-              'rgba(34, 197, 94, 1)',
-            ],
-            borderWidth: 1,
+            borderRadius: 6,
+            borderWidth: 0,
           },
         ],
       };
 
-      // Prepare purpose chart data
       const purposeLabels = Object.keys(purposeCountsForChart);
       const purposeValues = Object.values(purposeCountsForChart);
 
@@ -190,20 +171,14 @@ export default function AdminDashboard() {
           {
             data: purposeValues,
             backgroundColor: [
-              'rgba(59, 130, 246, 0.8)', // blue
-              'rgba(16, 185, 129, 0.8)', // emerald
-              'rgba(245, 158, 11, 0.8)', // amber
-              'rgba(239, 68, 68, 0.8)',  // red
-              'rgba(139, 92, 246, 0.8)', // violet
+              '#3b82f6',
+              '#10b981',
+              '#f59e0b',
+              '#ef4444',
+              '#8b5cf6',
             ],
-            borderColor: [
-              'rgba(59, 130, 246, 1)',
-              'rgba(16, 185, 129, 1)',
-              'rgba(245, 158, 11, 1)',
-              'rgba(239, 68, 68, 1)',
-              'rgba(139, 92, 246, 1)',
-            ],
-            borderWidth: 1,
+            borderWidth: 2,
+            borderColor: '#ffffff',
           },
         ],
       };
@@ -229,18 +204,18 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-dark-950">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar userRole={userRole} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Bar */}
-        <div className="bg-dark-900 border-b border-dark-800 p-4">
+        <div className="bg-white border-b border-slate-200 p-4 shadow-sm">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 bg-dark-800 hover:bg-dark-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors font-medium"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -251,15 +226,15 @@ export default function AdminDashboard() {
         {/* Content */}
         <div className="flex-1 overflow-auto p-8">
           {/* Filter Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div>
-              <label className="block text-dark-300 text-sm font-medium mb-2">
+              <label className="block text-slate-600 text-sm font-semibold mb-2">
                 Date Range
               </label>
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
+                className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -268,13 +243,13 @@ export default function AdminDashboard() {
             </div>
 
             <div>
-              <label className="block text-dark-300 text-sm font-medium mb-2">
+              <label className="block text-slate-600 text-sm font-semibold mb-2">
                 College
               </label>
               <select
                 value={collegeFilter}
                 onChange={(e) => setCollegeFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
+                className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
               >
                 <option value="">All Colleges</option>
                 <option value="CICS — College of Information and Computing Sciences">CICS — College of Information and Computing Sciences</option>
@@ -291,13 +266,13 @@ export default function AdminDashboard() {
             </div>
 
             <div>
-              <label className="block text-dark-300 text-sm font-medium mb-2">
+              <label className="block text-slate-600 text-sm font-semibold mb-2">
                 Purpose
               </label>
               <select
                 value={purposeFilter}
                 onChange={(e) => setPurposeFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
+                className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
               >
                 <option value="">All Purposes</option>
                 <option value="reading">Reading</option>
@@ -342,13 +317,14 @@ export default function AdminDashboard() {
           </div>
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Visitors by College */}
-            <div className="bg-dark-900 rounded-lg border border-dark-800 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Visitors by College</h3>
+            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900 mb-6">Visitors by College</h3>
               <div className="h-64">
                 {loading ? (
-                  <div className="h-full flex items-center justify-center text-dark-400">
+                  <div className="h-full flex items-center justify-center text-slate-400">
+                    <Loader className="w-6 h-6 animate-spin mr-2" />
                     Loading chart...
                   </div>
                 ) : chartData.collegeData.labels.length > 0 ? (
@@ -358,40 +334,35 @@ export default function AdminDashboard() {
                       responsive: true,
                       maintainAspectRatio: false,
                       plugins: {
-                        legend: {
-                          display: false,
-                        },
+                        legend: { display: false },
                         tooltip: {
-                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                          titleColor: 'white',
-                          bodyColor: 'white',
+                          backgroundColor: '#1e293b',
+                          titleColor: '#ffffff',
+                          bodyColor: '#ffffff',
+                          padding: 12,
+                          cornerRadius: 8,
                         },
                       },
                       scales: {
                         y: {
                           beginAtZero: true,
-                          grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
-                          },
-                          ticks: {
-                            color: 'rgba(255, 255, 255, 0.7)',
-                          },
+                          grid: { color: '#f1f5f9' },
+                          ticks: { color: '#64748b', font: { weight: '500' } },
                         },
                         x: {
-                          grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
-                          },
-                          ticks: {
-                            color: 'rgba(255, 255, 255, 0.7)',
-                            maxRotation: 45,
+                          grid: { display: false },
+                          ticks: { 
+                            color: '#64748b', 
+                            maxRotation: 45, 
                             minRotation: 45,
+                            font: { size: 11 }
                           },
                         },
                       },
                     }}
                   />
                 ) : (
-                  <div className="h-full flex items-center justify-center text-dark-400">
+                  <div className="h-full flex items-center justify-center text-slate-400">
                     No data available
                   </div>
                 )}
@@ -399,11 +370,12 @@ export default function AdminDashboard() {
             </div>
 
             {/* Visitors by Purpose */}
-            <div className="bg-dark-900 rounded-lg border border-dark-800 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Visitors by Purpose</h3>
+            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900 mb-6">Visitors by Purpose</h3>
               <div className="h-64">
                 {loading ? (
-                  <div className="h-full flex items-center justify-center text-dark-400">
+                  <div className="h-full flex items-center justify-center text-slate-400">
+                    <Loader className="w-6 h-6 animate-spin mr-2" />
                     Loading chart...
                   </div>
                 ) : chartData.purposeData.labels.length > 0 ? (
@@ -416,21 +388,23 @@ export default function AdminDashboard() {
                         legend: {
                           position: 'bottom',
                           labels: {
-                            color: 'rgba(255, 255, 255, 0.7)',
+                            color: '#475569',
                             padding: 20,
                             usePointStyle: true,
+                            font: { size: 12, weight: '500' }
                           },
                         },
                         tooltip: {
-                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                          titleColor: 'white',
-                          bodyColor: 'white',
+                          backgroundColor: '#1e293b',
+                          padding: 12,
+                          cornerRadius: 8,
                         },
                       },
+                      cutout: '70%',
                     }}
                   />
                 ) : (
-                  <div className="h-full flex items-center justify-center text-dark-400">
+                  <div className="h-full flex items-center justify-center text-slate-400">
                     No data available
                   </div>
                 )}

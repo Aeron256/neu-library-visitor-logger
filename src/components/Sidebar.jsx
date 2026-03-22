@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BarChart3, FileText, Users, Home } from 'lucide-react';
+import neuLogo from "../../assets/images/New_Era_University.png";
 
 export default function Sidebar({ userRole }) {
   const location = useLocation();
@@ -20,43 +21,46 @@ export default function Sidebar({ userRole }) {
   }
 
   return (
-    <div className="w-64 bg-dark-900 border-r border-dark-800 p-6 flex flex-col">
+    <div className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
       {/* Logo */}
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-neu-blue to-neu-cyan rounded-lg flex items-center justify-center">
-            <BarChart3 className="w-6 h-6 text-white" />
-          </div>
+          <img src={neuLogo} alt="NEU Library Logo" className="w-10 h-10" />
           <div>
-            <h1 className="text-lg font-bold text-white">NEU Library</h1>
-            <p className="text-xs text-dark-400">Visitor Log</p>
+            <h1 className="text-lg font-bold text-slate-900">NEU Library</h1>
+            <p className="text-xs text-slate-500 font-medium">Visitor Log</p>
           </div>
         </div>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 space-y-2">
+      <nav className="flex-1 space-y-1.5">
         {links.map(({ path, label, icon: Icon }) => (
           <Link
             key={path}
             to={path}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive(path)
-                ? 'bg-neu-blue bg-opacity-20 text-neu-blue border border-neu-blue'
-                : 'text-dark-400 hover:text-white hover:bg-dark-800'
+                ? 'bg-blue-50 text-blue-600 border border-blue-100 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
             }`}
           >
-            <Icon className="w-5 h-5" />
-            <span className="font-medium">{label}</span>
+            <Icon className={`w-5 h-5 ${isActive(path) ? 'text-blue-600' : 'text-slate-400'}`} />
+            <span className="font-semibold text-sm">{label}</span>
           </Link>
         ))}
       </nav>
 
       {/* Footer */}
-      <div className="pt-6 border-t border-dark-700">
-        <div className="text-xs text-dark-500 space-y-2">
-          <p>Role: <span className="font-semibold text-dark-300 capitalize">{userRole || 'User'}</span></p>
-          <p className="text-dark-600">© 2026 NEU Library</p>
+      <div className="pt-6 border-t border-slate-100">
+        <div className="text-xs text-slate-500 space-y-2 px-2">
+          <p className="flex items-center justify-between">
+            <span>Role:</span>
+            <span className="font-bold text-slate-700 capitalize bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+              {userRole || 'User'}
+            </span>
+          </p>
+          <p className="text-slate-400 font-medium">© 2026 NEU Library</p>
         </div>
       </div>
     </div>

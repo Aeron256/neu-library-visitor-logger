@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
-import { LogOut, Download, Search } from 'lucide-react';
+import { LogOut, Download, Search, Loader } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 
 export default function VisitorLogsPage() {
@@ -23,7 +23,7 @@ export default function VisitorLogsPage() {
       return;
     }
     fetchLogs();
-  }, [userRole]);
+  }, [userRole, navigate]);
 
   useEffect(() => {
     filterLogs();
@@ -51,7 +51,6 @@ export default function VisitorLogsPage() {
   const filterLogs = () => {
     let filtered = logs;
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(log =>
         log.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,40 +61,23 @@ export default function VisitorLogsPage() {
       );
     }
 
-    // Date filter
     if (dateFilter !== 'all') {
       const now = new Date();
       let startDate = new Date();
-
       switch (dateFilter) {
-        case 'today':
-          startDate.setDate(startDate.getDate() - 1);
-          break;
-        case 'week':
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case 'month':
-          startDate.setMonth(startDate.getMonth() - 1);
-          break;
-        default:
-          return;
+        case 'today': startDate.setHours(0,0,0,0); break;
+        case 'week': startDate.setDate(startDate.getDate() - 7); break;
+        case 'month': startDate.setMonth(startDate.getMonth() - 1); break;
+        default: break;
       }
-
       filtered = filtered.filter(log => {
         const logDate = log.timeIn?.toDate?.() || new Date(log.timeIn);
         return logDate >= startDate && logDate <= now;
       });
     }
 
-    // College filter
-    if (collegeFilter) {
-      filtered = filtered.filter(log => log.college === collegeFilter);
-    }
-
-    // Purpose filter
-    if (purposeFilter) {
-      filtered = filtered.filter(log => log.purpose === purposeFilter);
-    }
+    if (collegeFilter) filtered = filtered.filter(log => log.college === collegeFilter);
+    if (purposeFilter) filtered = filtered.filter(log => log.purpose === purposeFilter);
 
     setFilteredLogs(filtered);
   };
@@ -139,18 +121,17 @@ export default function VisitorLogsPage() {
   };
 
   return (
-    <div className="flex h-screen bg-dark-950">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar userRole={userRole} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <div className="bg-dark-900 border-b border-dark-800 p-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-white">Visitor Logs</h1>
+        <div className="bg-white border-b border-slate-200 p-4 shadow-sm z-10">
+          <div className="flex justify-between items-center px-4">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Visitor Logs</h1>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 bg-dark-800 hover:bg-dark-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition-all font-semibold text-sm"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -159,124 +140,125 @@ export default function VisitorLogsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-8">
-          {/* Controls */}
-          <div className="mb-8 space-y-4">
-            <div className="flex gap-4 flex-col md:flex-row">
+        <div className="flex-1 overflow-auto p-4 md:p-8">
+          <div className="mb-6 space-y-4">
+            <div className="flex gap-3 flex-col xl:flex-row xl:items-center">
               {/* Search */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-3 w-5 h-5 text-dark-500" />
+              <div className="flex-1 relative group">
+                <Search className="absolute left-3 top-2.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input
                   type="text"
-                  placeholder="Search by name, email, college, purpose, or user type..."
+                  placeholder="Search visitors..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
+                  className="w-full pl-10 pr-4 py-2.5 bg-white text-slate-900 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-sm"
                 />
               </div>
 
-              {/* Date Filter */}
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
+              {/* Filters Group */}
+              <div className="flex gap-2 flex-wrap">
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-xl focus:border-blue-500 outline-none shadow-sm font-medium text-sm cursor-pointer"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                </select>
 
-              {/* College Filter */}
-              <select
-                value={collegeFilter}
-                onChange={(e) => setCollegeFilter(e.target.value)}
-                className="px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
-              >
-                <option value="">All Colleges</option>
-                <option value="CICS — College of Information and Computing Sciences">CICS — College of Information and Computing Sciences</option>
-                <option value="CAS — College of Arts and Sciences">CAS — College of Arts and Sciences</option>
-                <option value="CBE — College of Business and Economics">CBE — College of Business and Economics</option>
-                <option value="COE — College of Engineering">COE — College of Engineering</option>
-                <option value="CON — College of Nursing">CON — College of Nursing</option>
-                <option value="COE-Ed — College of Education">COE-Ed — College of Education</option>
-                <option value="CTHM — College of Tourism and Hospitality Management">CTHM — College of Tourism and Hospitality Management</option>
-                <option value="CCJE — College of Criminal Justice Education">CCJE — College of Criminal Justice Education</option>
-                <option value="GRADUATE — Graduate School">GRADUATE — Graduate School</option>
-                <option value="STAFF — Faculty / Staff">STAFF — Faculty / Staff</option>
-              </select>
+                <select
+                  value={collegeFilter}
+                  onChange={(e) => setCollegeFilter(e.target.value)}
+                  className="px-3 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-xl focus:border-blue-500 outline-none shadow-sm font-medium text-sm cursor-pointer max-w-[200px]"
+                >
+                  <option value="">All Colleges</option>
+                  <option value="CICS — College of Information and Computing Sciences">CICS</option>
+                  <option value="CAS — College of Arts and Sciences">CAS</option>
+                  <option value="CBE — College of Business and Economics">CBE</option>
+                  <option value="COE — College of Engineering">COE</option>
+                  <option value="CON — College of Nursing">CON</option>
+                  <option value="COE-Ed — College of Education">COE-Ed</option>
+                  <option value="CTHM — College of Tourism and Hospitality Management">CTHM</option>
+                  <option value="CCJE — College of Criminal Justice Education">CCJE</option>
+                </select>
 
-              {/* Purpose Filter */}
-              <select
-                value={purposeFilter}
-                onChange={(e) => setPurposeFilter(e.target.value)}
-                className="px-4 py-2 bg-dark-800 text-white border border-dark-700 rounded-lg focus:outline-none focus:border-neu-blue"
-              >
-                <option value="">All Purposes</option>
-                <option value="reading">Reading</option>
-                <option value="studying">Studying</option>
-                <option value="computer">Computer Use</option>
-                <option value="research">Research</option>
-                <option value="meeting">Meeting</option>
-              </select>
-
-              {/* Export Button */}
-              <button
-                onClick={exportToCSV}
-                className="flex items-center gap-2 bg-neu-blue hover:bg-neu-blue hover:opacity-90 text-white px-6 py-2 rounded-lg transition-all"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export CSV</span>
-              </button>
+                <button
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/20 font-bold text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export</span>
+                </button>
+              </div>
             </div>
 
-            {/* Results Counter */}
-            <p className="text-dark-400 text-sm">
-              Showing {filteredLogs.length} of {logs.length} records
-            </p>
+            <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
+                <p className="text-slate-500 text-sm font-semibold">
+                  Found <span className="text-slate-900">{filteredLogs.length}</span> records
+                </p>
+            </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-dark-900 rounded-lg border border-dark-800 overflow-hidden">
+          {/* Table Container */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center text-dark-400">Loading logs...</div>
+              <div className="p-24 text-center flex flex-col items-center gap-4">
+                <Loader className="w-10 h-10 text-blue-500 animate-spin" />
+                <span className="text-slate-500 font-bold tracking-tight">Syncing Database...</span>
+              </div>
             ) : filteredLogs.length === 0 ? (
-              <div className="p-8 text-center text-dark-400">No logs found</div>
+              <div className="p-24 text-center">
+                <div className="inline-flex p-4 rounded-full bg-slate-50 mb-4 text-slate-300">
+                    <Search className="w-8 h-8" />
+                </div>
+                <p className="text-slate-500 font-bold">No results found</p>
+                <p className="text-slate-400 text-sm">Try adjusting your filters or search terms.</p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-dark-800 border-b border-dark-700">
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Name</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">College</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Purpose</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">User Type</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Time In</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Time Out</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-dark-300">Duration</th>
+                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Name</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">College</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Purpose</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">User Type</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Time In</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Duration</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-50">
                     {filteredLogs.map((log, idx) => (
-                      <tr
-                        key={log.id || idx}
-                        className="border-b border-dark-800 hover:bg-dark-800 hover:bg-opacity-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 text-sm text-white">{log.name}</td>
-                        <td className="px-6 py-4 text-sm text-dark-300">{log.college}</td>
-                        <td className="px-6 py-4 text-sm text-dark-300">
-                          <span className="capitalize bg-dark-700 px-3 py-1 rounded text-xs font-medium">
+                      <tr key={log.id || idx} className="hover:bg-blue-50/30 transition-colors group">
+                        <td className="px-6 py-4">
+                            <div className="text-sm font-bold text-slate-900">{log.name}</div>
+                            <div className="text-xs text-slate-400 font-medium">{log.email}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600 font-medium">{log.college?.split('—')[0] || 'N/A'}</td>
+                        <td className="px-6 py-4">
+                          <span className="capitalize bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-[10px] font-black tracking-wider">
                             {log.purpose}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-dark-300">{log.userType}</td>
-                        <td className="px-6 py-4 text-sm text-dark-300">
-                          {log.timeIn?.toDate?.()?.toLocaleString() || 'N/A'}
+                        <td className="px-6 py-4 text-sm text-slate-600 font-semibold">{log.userType}</td>
+                        <td className="px-6 py-4 text-sm text-slate-500 font-medium">
+                          {log.timeIn?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-dark-300">
-                          {log.timeOut?.toDate?.()?.toLocaleString() || 'Active'}
+                        <td className="px-6 py-4">
+                          {log.timeOut ? (
+                            <span className="text-slate-500 text-xs font-medium">Out: {log.timeOut.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Active
+                            </span>
+                          )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-dark-300">{log.duration || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-400 italic text-right font-medium">{log.duration || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
